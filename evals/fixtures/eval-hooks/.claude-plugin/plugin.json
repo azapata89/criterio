@@ -1,0 +1,1 @@
+{ "name": "eval-hooks", "version": "0.0.0", "description": "Solo para evals de criterio: corre tests ocultos al terminar.", "author": { "name": "criterio" } }

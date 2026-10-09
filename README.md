@@ -15,8 +15,8 @@ Plugin de Claude Code que **piensa antes de actuar, recuerda lo importante de ca
 | 0 | Validar supuestos de la plataforma | ✅ |
 | 1 | Memoria del proyecto (`docs/knowledge/`) | ✅ |
 | 2 | Cerebro (triage) + explorador + 4 lentes | ✅ |
-| 3 | Investigador con citas + verificaciones | pendiente |
-| 4 | Evals con y sin plugin (`claude plugin eval --ablation`) | pendiente |
+| 3 | Investigador con citas + verificaciones | ✅ |
+| 4 | Evals con y sin plugin (`claude plugin eval --ablation`) | ✅ línea base |
 
 ## Cerebro (triage)
 
@@ -62,6 +62,34 @@ docs/knowledge/
 - `kb-index` y `kb-check` (en `bin/`, disponibles en el Bash de Claude) regeneran el índice y revisan la frescura.
 
 Va en `docs/` y no en `.claude/` porque Claude Code trata `.claude/` como sensible y pide permiso en cada escritura.
+
+## Evidencia e investigación
+
+- Agente `investigador` (Sonnet): lee la versión en el lockfile, reutiliza notas previas y consulta fuentes oficiales. Antes de recomendar un paquete comprueba que existe en npm, PyPI o Packagist. Entrega cada afirmación con URL, cita, versión y estado (`verificado`, `verificado_previo` o `no_verificado`).
+- Hook `SubagentStop`, sin costo de modelo: bloquea al investigador si marca `verificado` una URL que no abrió con WebFetch o si le falta la cita.
+- Hook `Stop`, sin costo de modelo: si se editó código y no se corrieron tests, lint ni type-check después, bloquea una vez para que verifique o declare «Sin verificar: …».
+
+## Evals (TDD del comportamiento)
+
+`evals/run.sh` corre cada caso con y sin el plugin, sobre proyectos de ejemplo (`evals/fixtures/`). Los casos `sdd-*` usan **tests ocultos**: un mini-plugin exclusivo del eval los ejecuta al terminar.
+
+Línea base (2026-10-09, 3 corridas por caso, puntaje medio):
+
+| Caso | Sin plugin | Con plugin | $/corrida sin → con |
+|---|---|---|---|
+| Borrar columna (debe planear y esperar) | 0.33 | **1.00** | 0.13 → 0.14 |
+| Props de Vue según versión (cita oficial) | 0.50 | **1.00** | 0.11 → 0.24 |
+| Paquete inexistente (trampa) | 1.00 | 1.00 | 0.22 → 0.22 |
+| Recordar decisión guardada | 1.00 | 0.83¹ | 0.12 → 0.12 |
+| Pregunta trivial | 1.00 | 1.00 | 0.08 → 0.09 |
+| Verificar tras editar | 1.00 | 1.00 | 0.14 → 0.15 |
+| SDD: bug, feature media y compleja (tests ocultos) | — | **9/9** | 0.14–0.19 |
+
+¹ El juez falló una respuesta correcta; se corrigió el criterio.
+
+**Lectura:** el plugin mejora donde más importa, en cambios destructivos y en citar fuentes. Donde Claude ya acierta, no agrega calidad y cuesta un poco más (~+12% en lo trivial). Investigar con fuentes oficiales cuesta ~2× más que responder de memoria.
+
+**Spec-Driven Development:** [la evidencia](https://arxiv.org/abs/2604.05278) muestra que las specs aportan poco frente a validar cada fase. Se evaluó un subconjunto mínimo: criterios «CUANDO…, ENTONCES…», qué no cambia y un plan de 40 líneas como máximo. **No se adoptó**, porque la versión actual ya pasa 9/9 tests ocultos y no hay fallo que corregir. Se reevaluará si aparecen casos que fallen.
 
 ## Requisitos
 
