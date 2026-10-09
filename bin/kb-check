@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Lista notas posiblemente obsoletas de docs/knowledge/ (solo lectura).
+
+Uso: kb-check [--root RUTA] [--days N]
+Sale con 1 si encuentra problemas.
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+import kb  # noqa: E402
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    parser.add_argument("--root", help="raíz del proyecto (por defecto: CLAUDE_PROJECT_DIR o git)")
+    parser.add_argument("--days", type=int, default=kb.STALE_DAYS, help="días hasta considerar vieja una verificación")
+    args = parser.parse_args()
+
+    root = kb.project_root(args.root)
+    base = root / kb.KB_DIR
+    if not base.is_dir():
+        print(f"No existe {base}.", file=sys.stderr)
+        return 0
+    problems = kb.check(base, root, stale_days=args.days)
+    for p in problems:
+        print(p)
+    if not problems:
+        print("Sin problemas detectados.")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

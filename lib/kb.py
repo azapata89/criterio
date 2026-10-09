@@ -1,0 +1,193 @@
+"""Base de conocimiento por proyecto: notas markdown con frontmatter en docs/knowledge/.
+
+Solo stdlib. Lo usan los hooks y los ejecutables de bin/.
+"""
+
+import datetime as dt
+import os
+import re
+import subprocess
+from pathlib import Path
+
+KB_DIR = Path("docs") / "knowledge"
+INDEX_NAME = "INDEX.md"
+NOTE_DIRS = ("decisions", "learnings", "research")
+AUTO_START = "<!-- kb:auto:start -->"
+AUTO_END = "<!-- kb:auto:end -->"
+MAX_INDEX_LINES = 200
+STALE_DAYS = 180
+
+INDEX_HEADER = f"""# Base de conocimiento del proyecto
+
+<!-- Escrito a mano: stack, versiones clave y comandos. Mantenerlo corto. -->
+## Stack
+- (pendiente)
+
+## Comandos
+- (pendiente)
+
+## Notas
+{AUTO_START}
+{AUTO_END}
+"""
+
+
+def project_root(explicit=None):
+    if explicit:
+        return Path(explicit).resolve()
+    env = os.environ.get("CLAUDE_PROJECT_DIR")
+    if env:
+        return Path(env).resolve()
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=True,
+        )
+        return Path(out.stdout.strip())
+    except (OSError, subprocess.CalledProcessError):
+        return Path.cwd()
+
+
+def parse_frontmatter(text):
+    """Frontmatter YAML mínimo: `clave: valor`, `clave: [a, b]` y listas con `- item`."""
+    if not text.startswith("---\n"):
+        return {}
+    end = text.find("\n---", 4)
+    if end == -1:
+        return {}
+    data, key = {}, None
+    for raw in text[4:end].splitlines():
+        line = raw.rstrip()
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        if item and key is not None:
+            if not isinstance(data.get(key), list):
+                data[key] = []
+            data[key].append(_scalar(_strip_comment(item.group(1))))
+            continue
+        kv = re.match(r"^([A-Za-z_][\w-]*):\s*(.*)$", line)
+        if not kv:
+            continue
+        key, value = kv.group(1), _strip_comment(kv.group(2))
+        if value.startswith("[") and value.endswith("]"):
+            inner = value[1:-1].strip()
+            data[key] = [_scalar(v) for v in inner.split(",")] if inner else []
+        else:
+            data[key] = _scalar(value) if value else []
+    return data
+
+
+def _strip_comment(value):
+    """Quita un comentario ` # ...` al final, salvo dentro de comillas."""
+    value = value.strip()
+    if value[:1] in "\"'":
+        return value
+    return re.split(r"\s+#", value, maxsplit=1)[0].strip()
+
+
+def _scalar(value):
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def iter_notes(kb):
+    for sub in NOTE_DIRS:
+        folder = kb / sub
+        if folder.is_dir():
+            yield from sorted(folder.glob("*.md"))
+
+
+def load_note(path):
+    meta = parse_frontmatter(path.read_text(encoding="utf-8"))
+    return {
+        "path": path,
+        "type": meta.get("type") or path.parent.name.rstrip("s"),
+        "title": meta.get("title") or path.stem,
+        "status": meta.get("status") or "active",
+        "verified_at": meta.get("verified_at") or "",
+        "sources": _as_list(meta.get("sources")),
+        "refs": _as_list(meta.get("refs")),
+    }
+
+
+def _as_list(value):
+    if value in (None, ""):
+        return []
+    return value if isinstance(value, list) else [value]
+
+
+def init_kb(root):
+    kb = root / KB_DIR
+    for sub in NOTE_DIRS:
+        (kb / sub).mkdir(parents=True, exist_ok=True)
+    index = kb / INDEX_NAME
+    if not index.exists():
+        index.write_text(INDEX_HEADER, encoding="utf-8")
+    return kb
+
+
+def render_listing(kb):
+    lines = []
+    for path in iter_notes(kb):
+        note = load_note(path)
+        if note["status"] == "superseded":
+            continue
+        rel = path.relative_to(kb).as_posix()
+        mark = f" [{note['status']}]" if note["status"] != "active" else ""
+        lines.append(f"- `{rel}` ({note['type']}){mark}: {note['title']}")
+    return lines
+
+
+def build_index(kb):
+    """Reescribe solo el bloque automático del INDEX; la cabecera manual no se toca."""
+    index = kb / INDEX_NAME
+    text = index.read_text(encoding="utf-8") if index.exists() else INDEX_HEADER
+    if AUTO_START not in text or AUTO_END not in text:
+        text = text.rstrip() + f"\n\n## Notas\n{AUTO_START}\n{AUTO_END}\n"
+    head, rest = text.split(AUTO_START, 1)
+    _, tail = rest.split(AUTO_END, 1)
+    listing = render_listing(kb)
+    budget = MAX_INDEX_LINES - head.count("\n") - tail.count("\n") - 3
+    dropped = 0
+    if len(listing) > budget:
+        dropped = len(listing) - max(budget, 0)
+        listing = listing[: max(budget, 0)]
+    if dropped:
+        listing.append(f"- … {dropped} notas más no listadas: buscar con grep en {KB_DIR.as_posix()}/")
+    body = "\n".join(listing) if listing else "- (sin notas todavía)"
+    new = f"{head}{AUTO_START}\n{body}\n{AUTO_END}{tail}"
+    index.write_text(new, encoding="utf-8")
+    return len(listing), dropped
+
+
+def check(kb, root, today=None, stale_days=STALE_DAYS):
+    """Problemas de frescura detectables sin modelo: refs rotos, verificación vieja, sin fuentes."""
+    today = today or dt.date.today()
+    problems = []
+    for path in iter_notes(kb):
+        note = load_note(path)
+        if note["status"] == "superseded":
+            continue
+        rel = path.relative_to(kb).as_posix()
+        for ref in note["refs"]:
+            target = ref.split(":", 1)[0].split("#", 1)[0]
+            if target and not (root / target).exists():
+                problems.append(f"{rel}: ref inexistente `{ref}`")
+        if note["status"] == "stale":
+            problems.append(f"{rel}: marcada como stale")
+        elif note["verified_at"]:
+            try:
+                age = (today - dt.date.fromisoformat(str(note["verified_at"]))).days
+            except ValueError:
+                problems.append(f"{rel}: verified_at inválido `{note['verified_at']}`")
+            else:
+                if age > stale_days:
+                    problems.append(f"{rel}: verificada hace {age} días")
+        else:
+            problems.append(f"{rel}: sin verified_at")
+        if note["type"] in ("learning", "research") and not note["sources"]:
+            problems.append(f"{rel}: sin sources")
+    return problems
