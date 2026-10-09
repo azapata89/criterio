@@ -2,6 +2,7 @@
 type: decision
 title: <decisión en una frase, en presente: "Usamos X para Y">
 status: active            # proposed | active | superseded | stale
+area:                     # frontend | backend | db | security | qa | perf | ops | producto
 verified_at: YYYY-MM-DD
 sources: []               # URLs o rutas que respaldan la decisión
 refs: []                  # rutas del repo afectadas (se comprueba que existan)

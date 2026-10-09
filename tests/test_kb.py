@@ -65,14 +65,14 @@ class KnowledgeBaseTest(unittest.TestCase):
     def test_index_keeps_manual_header_and_skips_superseded(self):
         index = self.kb / kb.INDEX_NAME
         index.write_text(index.read_text().replace("- (pendiente)", "- Python 3.12", 1))
-        self.note("decisions/0001-db.md", type="decision", title="Usamos Postgres", status="active")
+        self.note("decisions/0001-db.md", type="decision", title="Usamos Postgres", status="active", area="db")
         self.note("decisions/0000-old.md", type="decision", title="Viejo", status="superseded")
         self.note("learnings/cache.md", type="learning", title="Caché", status="stale")
         kb.build_index(self.kb)
         kb.build_index(self.kb)  # idempotente
         text = index.read_text()
         self.assertIn("- Python 3.12", text)
-        self.assertIn("`decisions/0001-db.md` (decision): Usamos Postgres", text)
+        self.assertIn("`decisions/0001-db.md` (decision · db): Usamos Postgres", text)
         self.assertIn("`learnings/cache.md` (learning) [stale]: Caché", text)
         self.assertNotIn("Viejo", text)
         self.assertEqual(text.count(kb.AUTO_START), 1)
@@ -93,13 +93,15 @@ class KnowledgeBaseTest(unittest.TestCase):
                   sources="[x]", refs="[src/missing.py]")
         self.note("learnings/old.md", type="learning", title="o", verified_at="2025-01-01", sources="[x]")
         self.note("learnings/nosrc.md", type="learning", title="n", verified_at="2026-10-01")
-        self.note("decisions/0001-x.md", type="decision", title="d", verified_at="2026-10-01")
+        self.note("decisions/0001-x.md", type="decision", title="d", verified_at="2026-10-01", area="db")
+        self.note("decisions/0003-z.md", type="decision", title="z", verified_at="2026-10-01", area="infra")
         self.note("decisions/0002-y.md", type="decision", title="s", status="superseded", refs="[gone.py]")
         problems = "\n".join(kb.check(self.kb, self.root, today=today))
         self.assertNotIn("ok.md", problems)
         self.assertIn("broken.md: ref inexistente `src/missing.py`", problems)
         self.assertIn("old.md: verificada hace", problems)
         self.assertIn("nosrc.md: sin sources", problems)
+        self.assertIn("0003-z.md: area desconocida `infra`", problems)
         self.assertNotIn("0001-x.md", problems)  # las decisiones no exigen sources
         self.assertNotIn("0002-y.md", problems)  # superseded se ignora
 
@@ -112,9 +114,12 @@ class SessionStartHookTest(unittest.TestCase):
             input="{}", capture_output=True, text=True, env=env, check=True,
         ).stdout
 
-    def test_silent_without_kb(self):
+    def test_triage_without_kb(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertEqual(self.run_hook(Path(tmp)), "")
+            ctx = json.loads(self.run_hook(Path(tmp)))["hookSpecificOutput"]["additionalContext"]
+            self.assertIn("TRIVIAL", ctx)
+            self.assertIn("/criterio:remember", ctx)
+            self.assertNotIn("Base de conocimiento de este proyecto", ctx)
 
     def test_injects_index(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -126,6 +131,7 @@ class SessionStartHookTest(unittest.TestCase):
             ctx = out["hookSpecificOutput"]["additionalContext"]
             self.assertEqual(out["hookSpecificOutput"]["hookEventName"], "SessionStart")
             self.assertIn("Algo útil", ctx)
+            self.assertIn("TRIVIAL", ctx)
             self.assertIn("knowledge-review", ctx)  # sin verified_at ni sources → aviso
             self.assertLess(len(ctx), 10000)
 

@@ -2,6 +2,7 @@
 type: learning
 title: <lo aprendido en una frase>
 status: active            # active | superseded | stale
+area:                     # frontend | backend | db | security | qa | perf | ops | producto
 verified_at: YYYY-MM-DD
 version:                  # versión de la librería/herramienta a la que aplica, si aplica
 sources: []               # obligatorio: URL oficial, issue, o archivo:línea

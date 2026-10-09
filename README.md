@@ -14,9 +14,34 @@ Plugin de Claude Code que **piensa antes de actuar, recuerda lo importante de ca
 |---|---|---|
 | 0 | Validar supuestos de la plataforma | ✅ |
 | 1 | Memoria del proyecto (`docs/knowledge/`) | ✅ |
-| 2 | Cerebro: skill de triage + explorador | pendiente |
+| 2 | Cerebro (triage) + explorador + 4 lentes | ✅ |
 | 3 | Investigador con citas + verificaciones | pendiente |
 | 4 | Evals con y sin plugin (`claude plugin eval --ablation`) | pendiente |
+
+## Cerebro (triage)
+
+Al iniciar la sesión, el mismo hook inyecta una rúbrica corta (`hooks/triage.md`). Claude clasifica cada tarea sin llamadas extra al modelo:
+
+| Tipo | Qué hace |
+|---|---|
+| TRIVIAL | Lo resuelve directo |
+| MEDIO | Escribe qué espera y cómo lo comprobará, ejecuta y compara |
+| COMPLEJO | Plan con opciones, riesgos y criterio de terminado; **espera tu sí** |
+| INVESTIGACIÓN | Lockfile y fuente oficial antes de afirmar; si no puede verificar, lo dice |
+| PARALELO-LECTURA | Agente `explorador` (Haiku, solo lectura), uno por zona |
+
+Equipos de agentes y workflows solo si los pides. El código y los tests los escribe el modelo principal.
+
+## Lentes por rol
+
+Skills cortas con un checklist ordenado por costo del error y fuentes oficiales verificadas. Se cargan solas según su descripción y no ocupan contexto hasta que se usan:
+
+- `lente-seguridad`: OWASP Cheat Sheets, ASVS 5.0, Top 10:2025 y docs de Laravel, Django, FastAPI, Node y Next
+- `lente-db`: migraciones sin bloqueo, índices, N+1, EXPLAIN y transacciones (PostgreSQL, MySQL, Laravel, Django)
+- `lente-qa`: tests de regresión, comportamiento observable, flaky y E2E
+- `lente-benchmarks`: baseline, warmup y varianza; nada es «más rápido» sin medirlo
+
+Las notas de memoria llevan `area` (frontend, backend, db, security, qa, perf, ops, producto) para que cada lente encuentre las suyas.
 
 ## Memoria del proyecto
 

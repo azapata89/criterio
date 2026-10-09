@@ -12,6 +12,7 @@ from pathlib import Path
 KB_DIR = Path("docs") / "knowledge"
 INDEX_NAME = "INDEX.md"
 NOTE_DIRS = ("decisions", "learnings", "research")
+AREAS = ("frontend", "backend", "db", "security", "qa", "perf", "ops", "producto")
 AUTO_START = "<!-- kb:auto:start -->"
 AUTO_END = "<!-- kb:auto:end -->"
 MAX_INDEX_LINES = 200
@@ -107,6 +108,7 @@ def load_note(path):
         "type": meta.get("type") or path.parent.name.rstrip("s"),
         "title": meta.get("title") or path.stem,
         "status": meta.get("status") or "active",
+        "area": meta.get("area") or "",
         "verified_at": meta.get("verified_at") or "",
         "sources": _as_list(meta.get("sources")),
         "refs": _as_list(meta.get("refs")),
@@ -137,7 +139,8 @@ def render_listing(kb):
             continue
         rel = path.relative_to(kb).as_posix()
         mark = f" [{note['status']}]" if note["status"] != "active" else ""
-        lines.append(f"- `{rel}` ({note['type']}){mark}: {note['title']}")
+        kind = f"{note['type']} · {note['area']}" if note["area"] else note["type"]
+        lines.append(f"- `{rel}` ({kind}){mark}: {note['title']}")
     return lines
 
 
@@ -188,6 +191,8 @@ def check(kb, root, today=None, stale_days=STALE_DAYS):
                     problems.append(f"{rel}: verificada hace {age} días")
         else:
             problems.append(f"{rel}: sin verified_at")
+        if note["area"] and note["area"] not in AREAS:
+            problems.append(f"{rel}: area desconocida `{note['area']}`")
         if note["type"] in ("learning", "research") and not note["sources"]:
             problems.append(f"{rel}: sin sources")
     return problems

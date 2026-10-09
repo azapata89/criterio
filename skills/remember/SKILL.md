@@ -30,6 +30,7 @@ Antes de crear una nota, busca con Grep en `docs/knowledge/` si ya hay una sobre
 Usa la plantilla `templates/decision.md` o `templates/learning.md` del directorio de esta skill.
 - `sources`: obligatorio en learnings. Cada fuente debe ser algo que tú hayas visto en esta sesión: una URL consultada o un `archivo:línea` leído. Si no hay fuente, **no guardes la nota**; dile al usuario qué haría falta para verificarla.
 - `refs`: solo rutas que existan hoy en el repo.
+- `area`: una de frontend, backend, db, security, qa, perf, ops, producto. Sirve para que los lentes encuentren las notas de su área.
 - `verified_at`: fecha de hoy.
 - Lenguaje simple; cada sección en 1-4 líneas.
 
