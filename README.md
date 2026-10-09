@@ -2,6 +2,12 @@
 
 Plugin de Claude Code que **piensa antes de actuar, recuerda lo importante de cada proyecto y no afirma nada sin evidencia**. Costo-eficiente y sin sobreingeniería: cada pieza entra solo si una medición lo justifica.
 
+## Instalación
+
+```
+/plugin install criterio --marketplace azapata89/criterio
+```
+
 ## Estado
 
 | Fase | Contenido | Estado |

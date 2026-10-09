@@ -1,0 +1,15 @@
+{
+  "name": "criterio",
+  "description": "Plugin criterio para Claude Code: triage, memoria del proyecto y evidencia.",
+  "owner": {
+    "name": "Andrés Zapata",
+    "url": "https://github.com/azapata89"
+  },
+  "plugins": [
+    {
+      "name": "criterio",
+      "source": "./",
+      "description": "Piensa antes de actuar, recuerda lo importante de cada proyecto y no afirma nada sin evidencia."
+    }
+  ]
+}

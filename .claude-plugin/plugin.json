@@ -3,7 +3,17 @@
   "version": "0.1.0",
   "description": "Piensa antes de actuar, recuerda lo importante de cada proyecto y no afirma nada sin evidencia. Costo-eficiente y sin sobreingeniería.",
   "author": {
-    "name": "Andrés Zapata"
+    "name": "Andrés Zapata",
+    "url": "https://github.com/azapata89"
   },
-  "keywords": ["memoria", "evidencia", "triage", "adr", "costo"]
+  "keywords": [
+    "memoria",
+    "evidencia",
+    "triage",
+    "adr",
+    "costo"
+  ],
+  "homepage": "https://github.com/azapata89/criterio",
+  "repository": "https://github.com/azapata89/criterio",
+  "license": "MIT"
 }
