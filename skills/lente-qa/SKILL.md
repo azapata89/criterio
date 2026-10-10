@@ -13,7 +13,12 @@ description: Calidad y estrategia de pruebas: radio de impacto mientras trabajas
 ## Pruebas por radio de impacto
 - **Mientras trabajas:** corre solo las pruebas de lo que tocaste y de lo que depende de ello (el módulo, su CRUD, sus pantallas). Son rápidas y dan retroalimentación inmediata.
 - **Antes de cerrar la tarea o de hacer push:** corre **una vez** la suite completa, aunque sea lenta. Ninguna deducción del tipo «esto no debería afectar» reemplaza correrla. Si de verdad no se puede correr, decláralo como sin verificar.
-- **Pruebas que dependen del entorno** (fuentes, capturas, anchos, zona horaria): córrelas en el mismo sistema que el CI, por ejemplo con la imagen Docker de Playwright, no solo en local.
+- **Pruebas que dependen del entorno** (fuentes, capturas, anchos, zona horaria): córrelas en el mismo sistema que el CI, no solo en local. Con Playwright basta con correr el navegador en Linux y dejar la app en local:
+  ```
+  docker run -d --rm --name pw-linux -p 3333:3333 --init mcr.microsoft.com/playwright:v<versión del proyecto>-noble \
+    /bin/sh -c "npx -y playwright@<versión> run-server --port 3333 --host 0.0.0.0"
+  PW_TEST_CONNECT_WS_ENDPOINT=ws://127.0.0.1:3333/ PW_TEST_CONNECT_EXPOSE_NETWORK='<loopback>' npx playwright test <spec>
+  ```
 - Agrupa los push: un commit por tarea y un push por bloque de tareas, con la suite completa verde antes del push.
 
 ## Checklist, ordenada por costo del error
