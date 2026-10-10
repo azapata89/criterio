@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && if [ -f .eval/oculto.sh ]; then bash .eval/oculto.sh > .eval/resultado.txt 2>&1 || true; fi" } ] }
+    ]
+  }
+}
