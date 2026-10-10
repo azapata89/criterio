@@ -17,8 +17,8 @@ def tool_use(name, **inp):
     return {"type": "tool_use", "id": "t", "name": name, "input": inp}
 
 
-def tool_result(text="ok"):
-    return {"type": "tool_result", "tool_use_id": "t", "content": text}
+def tool_result(text="ok", tid="t", is_error=False):
+    return {"type": "tool_result", "tool_use_id": tid, "content": text, "is_error": is_error}
 
 
 def claims_message(*claims, prose="Resumen."):
@@ -122,6 +122,28 @@ class StopTest(TranscriptMixin, unittest.TestCase):
         t = self.turn(tool_use("Write", file_path="/p/docs/knowledge/learnings/x.md"),
                       tool_use("Edit", file_path="/p/README.md"))
         self.assertIsNone(verify.check_stop(t, "Hecho."))
+
+    def run_tests(self, salida, is_error=False):
+        return [entry("user", "haz algo"),
+                entry("assistant", [tool_use("Edit", file_path="/p/src/app.py")]),
+                entry("assistant", [{**tool_use("Bash", command="php artisan test | tail -3"), "id": "v1"}]),
+                entry("user", [tool_result(salida, tid="v1", is_error=is_error)])]
+
+    def test_failed_verification_does_not_count(self):
+        t = self.transcript(*self.run_tests('{"tool":"phpunit","result":"failed","tests":114,"passed":110}'))
+        self.assertIn("falló", verify.check_stop(t, "Todo en verde."))
+
+    def test_failed_verification_acknowledged_passes(self):
+        t = self.transcript(*self.run_tests("Tests:  2 failed, 40 passed"))
+        self.assertIsNone(verify.check_stop(t, "Quedan 2 tests que fallan por X; sin verificar el resto."))
+
+    def test_passing_output_with_zero_failed_counts(self):
+        t = self.transcript(*self.run_tests("Tests:  0 failed, 42 passed (120 assertions)"))
+        self.assertIsNone(verify.check_stop(t, "Hecho."))
+
+    def test_error_exit_counts_as_failure(self):
+        t = self.transcript(*self.run_tests("Exit code 1\nboom", is_error=True))
+        self.assertIsNotNone(verify.check_stop(t, "Hecho."))
 
     def test_background_tests_do_not_count_until_seen(self):
         t = self.turn(tool_use("Edit", file_path="/p/src/app.py"),

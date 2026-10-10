@@ -30,6 +30,10 @@ VERIFY_CMD = re.compile(
     r"cargo\s+(test|check|clippy)|go\s+(test|vet)|make\s+(test|check|lint))\b"
 )
 DECLARED_UNVERIFIED = re.compile(r"sin verificar|no verificad[oa]|no (lo )?pude verificar", re.IGNORECASE)
+FAILED_OUTPUT = re.compile(
+    r'"result"\s*:\s*"failed"|\bFAILED\b|ERRORS!|\b[1-9]\d*\s+(failed|failing|failures?|errors?)\b'
+)
+ACK_FAILURE = re.compile(r"\bfall(a|an|ó|aron|ando|ido)\b|en rojo|failing|failed", re.IGNORECASE)
 
 
 def _read_jsonl(path):
@@ -56,14 +60,30 @@ def _content(entry):
     return content if isinstance(content, list) else []
 
 
-def _tool_uses(entries):
+def _tool_uses(entries, with_id=False):
     for entry in entries:
         if entry.get("type") != "assistant":
             continue
         for item in _content(entry):
             if isinstance(item, dict) and item.get("type") == "tool_use":
                 inp = item.get("input")
-                yield item.get("name", ""), inp if isinstance(inp, dict) else {}
+                inp = inp if isinstance(inp, dict) else {}
+                if with_id:
+                    yield item.get("id"), item.get("name", ""), inp
+                else:
+                    yield item.get("name", ""), inp
+
+
+def _tool_results(entries):
+    """id de tool_use → True si el resultado indica fallo (código de error o salida con fallos)."""
+    failed = {}
+    for entry in entries:
+        for item in _content(entry):
+            if isinstance(item, dict) and item.get("type") == "tool_result":
+                text = item.get("content")
+                text = text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
+                failed[item.get("tool_use_id")] = bool(item.get("is_error")) or bool(FAILED_OUTPUT.search(text))
+    return failed
 
 
 def _norm_url(url):
@@ -175,27 +195,36 @@ def check_stop(transcript_path, last_message, cwd=None):
         last = _timestamp(entry) or last
         times.append(last)
     timed = bool(turn) and times[0] is not None
+    results = _tool_results(turn)
     events = []  # (momento, orden, tipo, ruta)
     for i, entry in enumerate(turn):
         when = times[i] if timed else i
-        for j, (name, inp) in enumerate(_tool_uses([entry])):
+        for j, (tid, name, inp) in enumerate(_tool_uses([entry], with_id=True)):
             path = str(inp.get("file_path") or inp.get("notebook_path") or "")
             if name in EDIT_TOOLS and path and not NON_CODE.search(path):
                 events.append((when, (i, j), "edit", path))
             elif (name == "Bash" and VERIFY_CMD.search(str(inp.get("command", "")))
                   and not inp.get("run_in_background")):  # en segundo plano aún no hay resultado
-                events.append((when, (i, j), "verify", None))
+                events.append((when, (i, j), "fail" if results.get(tid) else "verify", None))
     if timed and cwd:
         events += [(mtime, (-1, 0), "edit", path) for mtime, path in _git_code_changes(cwd, times[0])]
 
-    last_edit, verified_after = None, False
+    last_edit, verified_after, last_failed = None, False, False
     for _, _, kind, path in sorted(events, key=lambda e: (e[0], e[1])):
         if kind == "edit":
-            last_edit, verified_after = path, False
+            last_edit, verified_after, last_failed = path, False, False
         elif last_edit:
-            verified_after = True
-    if last_edit is None or verified_after or DECLARED_UNVERIFIED.search(last_message or ""):
+            verified_after, last_failed = kind == "verify", kind == "fail"
+    message = last_message or ""
+    if last_edit is None or verified_after or DECLARED_UNVERIFIED.search(message):
         return None
+    if last_failed:
+        if ACK_FAILURE.search(message):
+            return None
+        return (
+            f"La última verificación después de editar ({last_edit}) falló y tu mensaje no lo dice. "
+            "Corrige el fallo y vuelve a correrla, o explica qué falla y por qué."
+        )
     return (
         f"Editaste código ({last_edit}) y no corriste ninguna verificación después. "
         "Corre los tests, lint o type-check relevantes del proyecto; si no es posible, "
