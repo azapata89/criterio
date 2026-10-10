@@ -20,6 +20,7 @@ description: Calidad y estrategia de pruebas: radio de impacto mientras trabajas
   PW_TEST_CONNECT_WS_ENDPOINT=ws://127.0.0.1:3333/ PW_TEST_CONNECT_EXPOSE_NETWORK='<loopback>' npx playwright test <spec>
   ```
 - Agrupa los push: un commit por tarea y un push por bloque de tareas, con la suite completa verde antes del push.
+- **Plan de pruebas:** si el proyecto tiene uno (qué pruebas cubren cada ruta; lo compartido dispara todo), úsalo para el radio de impacto. Si no existe y la suite es lenta (E2E de minutos), propón crearlo y usarlo también en el CI: solo lo afectado por el diff en cada push, y la suite completa por las noches, antes de cada release y a pedido.
 
 ## Checklist, ordenada por costo del error
 1. **Regresión:** cada bug corregido lleva un test que falla sin el fix y pasa con él. Comprueba las dos cosas: primero sin el fix, después con él.
