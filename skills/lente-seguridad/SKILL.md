@@ -1,6 +1,6 @@
 ---
 name: lente-seguridad
-description: Checklist de seguridad con fuentes OWASP y docs oficiales. Úsala antes de modificar autenticación, autorización, sesiones, rutas o controladores que reciben input del usuario, uploads, manejo de secretos o .env, o cuando el usuario pida una revisión de seguridad.
+description: Checklist de seguridad con fuentes OWASP y docs oficiales. Úsala antes de modificar autenticación, autorización, roles o permisos, sesiones, rutas o controladores que reciben input del usuario, uploads, secretos o .env; operaciones destructivas (borrar o restablecer datos, purgar auditoría o bitácora); modos demo/debug o flags que cambian el comportamiento entre entornos; o cuando el usuario pida una revisión de seguridad.
 ---
 
 # Lente: seguridad
@@ -23,7 +23,11 @@ description: Checklist de seguridad con fuentes OWASP y docs oficiales. Úsala a
 7. **CSRF** activo en rutas que cambian estado, y cualquier exclusión justificada. En Server Actions de Next, la auth va dentro de cada acción.
 8. **Salida sin escapar** con datos del usuario: `v-html`, `{!! !!}`, `dangerouslySetInnerHTML`, `|safe`, `mark_safe`.
 9. **Uploads:** tipo validado por contenido y tamaño limitado; renombrar y guardar fuera del webroot.
-10. **Dependencias y logs:**
+10. **Operaciones destructivas y modos por entorno:**
+    - Borrar, restablecer o purgar datos exige rol autorizado y queda auditado.
+    - La auditoría no se puede borrar desde la app.
+    - Los modos demo/debug se validan en el servidor (no basta ocultar el botón) y vienen apagados por defecto.
+11. **Dependencias y logs:**
     - Correr `npm audit`/`pnpm audit`, `composer audit` y `pip-audit`, sin vulnerabilidades altas sin revisar.
     - Los logs registran eventos de auth, sin tokens ni PII.
 

@@ -166,3 +166,76 @@ class HookScriptsTest(TranscriptMixin, unittest.TestCase):
         payload = {"transcript_path": t, "last_assistant_message": "Hecho."}
         self.assertEqual(json.loads(self.run_script("stop.py", payload))["decision"], "block")
         self.assertEqual(self.run_script("stop.py", {**payload, "stop_hook_active": True}), "")
+
+
+class StopGitTest(TranscriptMixin, unittest.TestCase):
+    """Ediciones hechas por Bash (sed, scripts) no aparecen como Edit/Write: se detectan por git + mtime."""
+
+    def setUp(self):
+        super().setUp()
+        import os
+        import subprocess
+        self.repo = Path(self.tmp.name) / "repo"
+        self.repo.mkdir()
+        run = lambda *a: subprocess.run(a, cwd=self.repo, check=True, capture_output=True)
+        (self.repo / "app.py").write_text("x = 1\n")
+        (self.repo / "README.md").write_text("doc\n")
+        run("git", "init", "-q")
+        run("git", "add", "-A")
+        run("git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
+        self.os = os
+
+    def at(self, ts, role, content):
+        return {**entry(role, content), "timestamp": ts}
+
+    def touch(self, name, iso, text="x = 2\n"):
+        import datetime as dt
+        p = self.repo / name
+        p.write_text(text)
+        t = dt.datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+        self.os.utime(p, (t, t))
+
+    def test_bash_edit_without_verification_blocks(self):
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "haz algo"),
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Bash", command="python3 - <<EOF")]))
+        self.touch("app.py", "2026-10-10T01:00:06Z")
+        reason = verify.check_stop(t, "Hecho.", cwd=str(self.repo))
+        self.assertIn("app.py", reason)
+
+    def test_bash_edit_then_tests_passes(self):
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "haz algo"),
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Bash", command="sed -i '' s/1/2/ app.py")]),
+                            self.at("2026-10-10T01:00:20Z", "assistant", [tool_use("Bash", command="pytest -q")]))
+        self.touch("app.py", "2026-10-10T01:00:06Z")
+        self.assertIsNone(verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
+
+    def test_changes_from_previous_turns_are_ignored(self):
+        self.touch("app.py", "2026-10-10T00:30:00Z")
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "¿qué hace app.py?"),
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Read", file_path="app.py")]))
+        self.assertIsNone(verify.check_stop(t, "Imprime x.", cwd=str(self.repo)))
+
+    def test_docs_changes_do_not_require_tests(self):
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "documenta"),
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Bash", command="echo >> README.md")]))
+        self.touch("README.md", "2026-10-10T01:00:06Z", "doc 2\n")
+        self.assertIsNone(verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
+
+    def test_untracked_new_code_file_counts(self):
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "crea un módulo"),
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Bash", command="cat > nuevo.py")]))
+        self.touch("nuevo.py", "2026-10-10T01:00:06Z")
+        self.assertIn("nuevo.py", verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
+
+    def test_metadata_entries_without_timestamp_are_ignored(self):
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "haz algo"),
+                            {"type": "mode", "mode": "auto"},
+                            {"type": "ai-title", "aiTitle": "x"},
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Bash", command="python3 - <<EOF")]))
+        self.touch("app.py", "2026-10-10T01:00:06Z")
+        self.assertIn("app.py", verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
+
+    def test_not_a_git_repo_falls_back_to_tools(self):
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "haz algo"),
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Bash", command="python3 x.py")]))
+        self.assertIsNone(verify.check_stop(t, "Hecho.", cwd=self.tmp.name))

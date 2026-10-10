@@ -20,7 +20,8 @@ def main():
     if data.get("stop_hook_active") or not data.get("transcript_path"):
         return 0
     try:
-        reason = verify.check_stop(data["transcript_path"], data.get("last_assistant_message", ""))
+        reason = verify.check_stop(data["transcript_path"], data.get("last_assistant_message", ""),
+                                  cwd=data.get("cwd"))
     except OSError:
         return 0
     if reason:

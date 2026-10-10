@@ -67,7 +67,7 @@ Va en `docs/` y no en `.claude/` porque Claude Code trata `.claude/` como sensib
 
 - Agente `investigador` (Sonnet): lee la versión en el lockfile, reutiliza notas previas y consulta fuentes oficiales. Antes de recomendar un paquete comprueba que existe en npm, PyPI o Packagist. Entrega cada afirmación con URL, cita, versión y estado (`verificado`, `verificado_previo` o `no_verificado`).
 - Hook `SubagentStop`, sin costo de modelo: bloquea al investigador si marca `verificado` una URL que no abrió con WebFetch o si le falta la cita.
-- Hook `Stop`, sin costo de modelo: si se editó código y no se corrieron tests, lint ni type-check después, bloquea una vez para que verifique o declare «Sin verificar: …».
+- Hook `Stop`, sin costo de modelo: si se editó código y no se corrieron tests, lint ni type-check después, bloquea una vez para que verifique o declare «Sin verificar: …». Detecta ediciones hechas con Edit/Write **y también por Bash** (sed, heredocs, scripts), usando los archivos que git ve modificados durante el turno.
 
 ## Evals (TDD del comportamiento)
 
@@ -84,8 +84,10 @@ Línea base (2026-10-09, 3 corridas por caso, puntaje medio):
 | Pregunta trivial | 1.00 | 1.00 | 0.08 → 0.09 |
 | Verificar tras editar | 1.00 | 1.00 | 0.14 → 0.15 |
 | SDD: bug, feature media y compleja (tests ocultos) | — | **9/9** | 0.14–0.19 |
+| Endpoint destructivo (protecciones + lente de seguridad)² | 0.33 | **1.00** | 0.14 → 0.18 |
 
 ¹ El juez falló una respuesta correcta; se corrigió el criterio.
+² Caso agregado tras observar una sesión real (Trazo) en la que el lente no se activó.
 
 **Lectura:** el plugin mejora donde más importa, en cambios destructivos y en citar fuentes. Donde Claude ya acierta, no agrega calidad y cuesta un poco más (~+12% en lo trivial). Investigar con fuentes oficiales cuesta ~2× más que responder de memoria.
 

@@ -5,10 +5,16 @@
   «verificado_previo» indica la nota de la base de conocimiento de la que sale.
 - check_stop: si en este turno se editó código, debe haberse corrido una
   verificación después de la última edición, o declarado qué quedó sin verificar.
+  Las ediciones se detectan por las herramientas Edit/Write y, como también se
+  edita desde Bash (sed, heredocs, scripts), por los archivos que git ve
+  modificados con fecha posterior al inicio del turno.
 """
 
+import datetime as dt
 import json
+import os
 import re
+import subprocess
 from urllib.parse import urlsplit
 
 ESTADOS = ("verificado", "verificado_previo", "no_verificado")
@@ -117,14 +123,75 @@ def _current_turn(entries):
     return entries[start:]
 
 
-def check_stop(transcript_path, last_message):
+def _timestamp(entry):
+    try:
+        return dt.datetime.fromisoformat(str(entry["timestamp"]).replace("Z", "+00:00")).timestamp()
+    except (KeyError, ValueError):
+        return None
+
+
+def _git(cwd, *args):
+    out = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, timeout=5)
+    return out.stdout if out.returncode == 0 else None
+
+
+def _git_code_changes(cwd, since):
+    """(mtime, ruta) de archivos de código modificados o nuevos según git, posteriores a `since`."""
+    try:
+        top = _git(cwd, "rev-parse", "--show-toplevel")
+        status = _git(cwd, "status", "--porcelain", "-z", "--untracked-files=all") if top else None
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if not status:
+        return []
+    changes, tokens = [], status.split("\0")
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        i += 1
+        if len(token) < 4:
+            continue
+        code, path = token[:2], token[3:]
+        if "R" in code or "C" in code:
+            i += 1  # el siguiente token es la ruta original del renombrado
+        if NON_CODE.search(path):
+            continue
+        full = os.path.join(top.strip(), path)
+        try:
+            mtime = os.stat(full).st_mtime
+        except OSError:
+            continue
+        if mtime > since:
+            changes.append((mtime, path))
+    return changes
+
+
+def check_stop(transcript_path, last_message, cwd=None):
     """Devuelve el motivo para bloquear el cierre, o None si se puede cerrar."""
+    turn = _current_turn(_read_jsonl(transcript_path))
+    # Las entradas de metadatos (modo, título…) no traen hora: heredan la de la anterior.
+    times, last = [], None
+    for entry in turn:
+        last = _timestamp(entry) or last
+        times.append(last)
+    timed = bool(turn) and times[0] is not None
+    events = []  # (momento, orden, tipo, ruta)
+    for i, entry in enumerate(turn):
+        when = times[i] if timed else i
+        for j, (name, inp) in enumerate(_tool_uses([entry])):
+            path = str(inp.get("file_path") or inp.get("notebook_path") or "")
+            if name in EDIT_TOOLS and path and not NON_CODE.search(path):
+                events.append((when, (i, j), "edit", path))
+            elif name == "Bash" and VERIFY_CMD.search(str(inp.get("command", ""))):
+                events.append((when, (i, j), "verify", None))
+    if timed and cwd:
+        events += [(mtime, (-1, 0), "edit", path) for mtime, path in _git_code_changes(cwd, times[0])]
+
     last_edit, verified_after = None, False
-    for name, inp in _tool_uses(_current_turn(_read_jsonl(transcript_path))):
-        path = str(inp.get("file_path") or inp.get("notebook_path") or "")
-        if name in EDIT_TOOLS and path and not NON_CODE.search(path):
+    for _, _, kind, path in sorted(events, key=lambda e: (e[0], e[1])):
+        if kind == "edit":
             last_edit, verified_after = path, False
-        elif name == "Bash" and last_edit and VERIFY_CMD.search(str(inp.get("command", ""))):
+        elif last_edit:
             verified_after = True
     if last_edit is None or verified_after or DECLARED_UNVERIFIED.search(last_message or ""):
         return None
