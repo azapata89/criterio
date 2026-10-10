@@ -1,6 +1,6 @@
 ---
 name: lente-qa
-description: Checklist de calidad de tests (comportamiento sobre implementación, regresión de bugs, flaky, E2E) con docs oficiales de pytest, Vitest, PHPUnit/Pest, Laravel, Django y Playwright. Úsala antes de escribir o modificar tests, al corregir un bug, o cuando un test falle de forma intermitente.
+description: Calidad y estrategia de pruebas: radio de impacto mientras trabajas y suite completa antes de cerrar o hacer push; tests de comportamiento, regresión de bugs, flaky y E2E, con docs oficiales de pytest, Vitest, PHPUnit/Pest, Laravel, Django y Playwright. Úsala antes de escribir, modificar o correr tests, al corregir un bug, o cuando un test falle de forma intermitente.
 ---
 
 # Lente: QA
@@ -9,6 +9,12 @@ description: Checklist de calidad de tests (comportamiento sobre implementación
 1. Busca en `docs/knowledge/INDEX.md` las notas con área `qa`, como convenciones de tests o comandos.
 2. Usa el runner y las convenciones que ya tiene el proyecto. No introduzcas otro framework de tests.
 3. Aplica solo los puntos que afectan al cambio. Al final reporta el comando que corriste y su resultado.
+
+## Pruebas por radio de impacto
+- **Mientras trabajas:** corre solo las pruebas de lo que tocaste y de lo que depende de ello (el módulo, su CRUD, sus pantallas). Son rápidas y dan retroalimentación inmediata.
+- **Antes de cerrar la tarea o de hacer push:** corre **una vez** la suite completa, aunque sea lenta. Ninguna deducción del tipo «esto no debería afectar» reemplaza correrla. Si de verdad no se puede correr, decláralo como sin verificar.
+- **Pruebas que dependen del entorno** (fuentes, capturas, anchos, zona horaria): córrelas en el mismo sistema que el CI, por ejemplo con la imagen Docker de Playwright, no solo en local.
+- Agrupa los push: un commit por tarea y un push por bloque de tareas, con la suite completa verde antes del push.
 
 ## Checklist, ordenada por costo del error
 1. **Regresión:** cada bug corregido lleva un test que falla sin el fix y pasa con él. Comprueba las dos cosas: primero sin el fix, después con él.
