@@ -51,6 +51,35 @@ class ClaimsTest(TranscriptMixin, unittest.TestCase):
         msg = claims_message(claim("https://docs.example.com/a#sec"), claim("", estado="no_verificado", cita=""))
         self.assertEqual(verify.check_claims(msg, self.fetched("https://docs.example.com/a/")), [])
 
+    def test_report_delivered_by_handback_tool(self):
+        """Claude Code entrega el informe del subagente con la herramienta SubagentHandback, no como texto."""
+        t = self.transcript(entry("assistant", [tool_use("WebFetch", url="https://docs.example.com/a", prompt="p")]),
+                            entry("assistant", [tool_use("SubagentHandback", message=claims_message(claim()))]))
+        self.assertEqual(verify.check_claims("", t), [])
+
+    def local_file(self, text):
+        p = Path(self.tmp.name) / "composer.lock"
+        p.write_text(text, encoding="utf-8")
+        return p
+
+    def test_local_file_evidence_with_literal_quote(self):
+        p = self.local_file('{\n  "name": "laravel/framework",\n  "version": "v13.35.0"\n}')
+        c = claim(f"file://{p}", cita='"name": "laravel/framework", "version": "v13.35.0"')
+        self.assertEqual(verify.check_claims(claims_message(c), self.fetched()), [])
+
+    def test_local_file_quote_must_exist(self):
+        p = self.local_file('"version": "v12.0.0"')
+        problems = verify.check_claims(claims_message(claim(f"file://{p}", cita='"version": "v13.35.0"')), self.fetched())
+        self.assertIn("no aparece", problems[0])
+
+    def test_local_file_must_exist(self):
+        problems = verify.check_claims(claims_message(claim("file:///no/existe.lock", cita="x")), self.fetched())
+        self.assertIn("no existe", problems[0])
+
+    def test_handback_without_json_block_still_fails(self):
+        t = self.transcript(entry("assistant", [tool_use("SubagentHandback", message="Solo prosa")]))
+        self.assertIn("bloque", verify.check_claims("", t)[0])
+
     def test_missing_json_block(self):
         problems = verify.check_claims("Solo prosa sin bloque", self.fetched())
         self.assertIn("bloque", problems[0])

@@ -30,7 +30,7 @@ Primero un resumen en lenguaje simple, de 3 a 8 líneas: qué hay que hacer y po
 ```
 
 Reglas del bloque:
-- `verificado` exige URL abierta con WebFetch y una cita textual corta de esa página.
+- `verificado` exige URL abierta con WebFetch y una cita textual corta de esa página. Si la evidencia es un archivo del proyecto (lockfile, código), usa `"url": "file:///ruta/absoluta"`, con `tipo_fuente` igual a `repo` y una cita copiada literal del archivo. Se comprueba que la cita esté ahí.
 - `verificado_previo` exige `nota`.
 - Todo lo demás es `no_verificado`, incluidas tus deducciones.
 

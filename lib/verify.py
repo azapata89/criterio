@@ -91,8 +91,37 @@ def _norm_url(url):
     return f"{parts.netloc.lower()}{parts.path.rstrip('/')}"
 
 
+def _squash(text):
+    return re.sub(r"\s+", "", text)
+
+
+def _check_local_quote(i, path, cita):
+    """Evidencia local (lockfile, código): el archivo existe y la cita aparece en él (sin contar espacios)."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            content = fh.read()
+    except OSError:
+        return [f"Afirmación {i}: el archivo {path} no existe o no se puede leer."]
+    if not cita.strip():
+        return [f"Afirmación {i}: marcada verificado sin cita textual."]
+    if _squash(cita) not in _squash(content):
+        return [f"Afirmación {i}: la cita no aparece en {path}; cópiala literal o márcala no_verificado."]
+    return []
+
+
+def _handback_message(entries):
+    """Último informe entregado con la herramienta SubagentHandback, si existe."""
+    message = None
+    for name, inp in _tool_uses(entries):
+        if name == "SubagentHandback" and isinstance(inp.get("message"), str):
+            message = inp["message"]
+    return message
+
+
 def check_claims(message, transcript_path):
     """Devuelve la lista de problemas (vacía si todo está en orden)."""
+    entries = _read_jsonl(transcript_path)
+    message = _handback_message(entries) or message
     blocks = JSON_BLOCK.findall(message or "")
     if not blocks:
         return ["Falta el bloque ```json con las afirmaciones (formato en la definición del agente)."]
@@ -104,8 +133,7 @@ def check_claims(message, transcript_path):
     if not isinstance(claims, list):
         return ["El bloque JSON debe tener la forma {\"afirmaciones\": [...]}."]
 
-    fetched = {_norm_url(inp.get("url", "")) for name, inp in _tool_uses(_read_jsonl(transcript_path))
-               if name == "WebFetch"}
+    fetched = {_norm_url(inp.get("url", "")) for name, inp in _tool_uses(entries) if name == "WebFetch"}
     problems = []
     for i, claim in enumerate(claims, 1):
         if not isinstance(claim, dict):
@@ -122,6 +150,9 @@ def check_claims(message, transcript_path):
         if estado != "verificado":
             continue
         url = str(claim.get("url") or "").strip()
+        if url.startswith("file://"):
+            problems += _check_local_quote(i, url[len("file://"):], str(claim.get("cita") or ""))
+            continue
         if not url.startswith(("http://", "https://")):
             problems.append(f"Afirmación {i}: marcada verificado sin URL.")
         elif _norm_url(url) not in fetched:
