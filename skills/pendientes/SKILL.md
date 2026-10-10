@@ -23,7 +23,7 @@ Cada tarea va en una línea, con un verbo y un resultado verificable. Si la tare
 - **ver**, o sin argumentos: muestra Ahora, los 5 primeros de Siguiente y las bloqueadas, marcando las que tienen la fecha de revisión vencida. Para cada una de esas, pregunta si ya llegó lo que esperaba.
 - **agregar**: inserta la tarea en Siguiente según su prioridad. Si no es obvia, pregunta antes de ubicarla.
 - **priorizar**: la mueve al lugar indicado, o a Ahora si el usuario dice que es lo próximo.
-- **posponer**: la mueve a Bloqueadas con `espera:` y `revisar:`. Si el usuario no da fecha, propone una.
+- **posponer**: la mueve a Bloqueadas con `espera:` y `revisar:`. Si el usuario no da fecha, propone una. Si solo una parte espera algo, divide la tarea y deja en Siguiente lo que se puede hacer ya.
 - **desbloquear**: la saca de Bloqueadas y la vuelve a poner en Siguiente.
 - **hecha**: la mueve a Hecho con la fecha de hoy, solo si se verificó. Si no se verificó, pregunta.
 
