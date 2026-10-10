@@ -28,6 +28,9 @@ VERIFY_CMD = re.compile(
     r"phpunit|pest|phpstan|psalm|artisan\s+test|"
     r"(npm|pnpm|yarn|bun|composer)\s+(run\s+)?(test|lint|typecheck|check)|"
     r"cargo\s+(test|check|clippy)|go\s+(test|vet)|make\s+(test|check|lint))\b"
+    # Scripts de prueba propios del proyecto: probar.sh, test.sh, run-tests.sh, scripts/check, bin/test…
+    r"|(^|[\s;&|])(\./|[\w.-]+/)*(run-)?(test|tests|check|probar|prueba|pruebas)\.sh(\s|$|;|&|\|)"
+    r"|(^|[\s;&|])(\./|[\w.-]+/)+(run-)?(test|tests|check|probar|prueba|pruebas)(\s|$|;|&|\|)"
 )
 DECLARED_UNVERIFIED = re.compile(r"sin verificar|no verificad[oa]|no (lo )?pude verificar", re.IGNORECASE)
 FAILED_OUTPUT = re.compile(

@@ -184,6 +184,18 @@ class StopTest(TranscriptMixin, unittest.TestCase):
             t = self.turn(tool_use("Edit", file_path=path))
             self.assertIsNone(verify.check_stop(t, "Hecho."), path)
 
+    def test_project_test_scripts_recognized(self):
+        for cmd in ("deploy/respaldo/probar.sh", "bash ./scripts/test.sh", "sh run-tests.sh",
+                    "./scripts/check", "bin/test", "cd deploy && ./pruebas.sh"):
+            t = self.turn(tool_use("Edit", file_path="/p/deploy/respaldo/respaldar.sh"), tool_use("Bash", command=cmd))
+            self.assertIsNone(verify.check_stop(t, "Hecho."), cmd)
+
+    def test_non_test_scripts_do_not_count(self):
+        for cmd in ("deploy/desplegar.sh", "./scripts/build.sh", "bash iniciar.sh",
+                    "grep -n test app.py", "git log --grep check", "echo pruebas"):
+            t = self.turn(tool_use("Edit", file_path="/p/app.py"), tool_use("Bash", command=cmd))
+            self.assertIsNotNone(verify.check_stop(t, "Hecho."), cmd)
+
     def test_verification_commands_recognized(self):
         for cmd in ("php artisan test", "vendor/bin/pest", "npx tsc --noEmit", "ruff check .",
                     "python -m unittest discover", "npx vitest run", "composer test", "mypy src"):
