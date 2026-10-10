@@ -63,6 +63,15 @@ docs/knowledge/
 
 Va en `docs/` y no en `.claude/` porque Claude Code trata `.claude/` como sensible y pide permiso en cada escritura.
 
+## Pendientes (qué sigue)
+
+`docs/knowledge/PENDIENTES.md` guarda las tareas en 4 secciones: **Ahora**, **Siguiente** (por prioridad), **Bloqueadas** (`— espera: <qué> — revisar: <fecha>`) y **Hecho** (las últimas 10).
+- Al iniciar la sesión, el hook inyecta un resumen corto: lo que está en curso, las 5 siguientes y las bloqueadas cuya revisión ya llegó.
+- Si pides «continúa», toma una sola tarea. Si depende de algo que no tiene, la pospone sin inventar nada y sigue con la siguiente.
+- Al cerrar, actualiza el archivo y termina con «Sigue: …».
+- `/criterio:pendientes` sirve para ver, agregar, priorizar, posponer, desbloquear o marcar hecha una tarea.
+- El lector acepta variantes que escriben los agentes, como «Por hacer», «Bloqueado» o «En curso».
+
 ## Evidencia e investigación
 
 - Agente `investigador` (Sonnet): lee la versión en el lockfile, reutiliza notas previas y consulta fuentes oficiales. Antes de recomendar un paquete comprueba que existe en npm, PyPI o Packagist. Entrega cada afirmación con URL, cita, versión y estado (`verificado`, `verificado_previo` o `no_verificado`).
@@ -85,9 +94,12 @@ Línea base (2026-10-09, 3 corridas por caso, puntaje medio):
 | Verificar tras editar | 1.00 | 1.00 | 0.14 → 0.15 |
 | SDD: bug, feature media y compleja (tests ocultos) | — | **9/9** | 0.14–0.19 |
 | Endpoint destructivo (protecciones + lente de seguridad)² | 0.33 | **1.00** | 0.14 → 0.18 |
+| Pendientes: cerrar tarea y decir qué sigue³ | 0.50 | **1.00** | 0.22 → 0.18 |
+| Pendientes: posponer tarea bloqueada sin inventar³ | 0.25 | **1.00** | 0.18 → 0.17 |
 
 ¹ El juez falló una respuesta correcta; se corrigió el criterio.
-² Caso agregado tras observar una sesión real (Trazo) en la que el lente no se activó.
+³ Columna «sin plugin» = plugin antes de la función (rojo de TDD). Juez de evals: Sonnet (Haiku reprobó dos respuestas correctas).
+² Caso agregado tras observar una sesión real en un proyecto privado, en la que el lente no se activó.
 
 **Lectura:** el plugin mejora donde más importa, en cambios destructivos y en citar fuentes. Donde Claude ya acierta, no agrega calidad y cuesta un poco más (~+12% en lo trivial). Investigar con fuentes oficiales cuesta ~2× más que responder de memoria.
 

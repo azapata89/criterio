@@ -138,3 +138,83 @@ class SessionStartHookTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PendientesTest(unittest.TestCase):
+    TEXTO = """# Pendientes
+
+## Ahora
+- [ ] Proteger restablecer demo
+
+## Siguiente
+- [ ] Quitar copia de alertas externa
+- [ ] CI con tests
+
+## Bloqueadas
+- [ ] SMTP real — espera: cuenta SMTP del cliente — revisar: 2026-10-08
+- [ ] Registrar la marca — espera: revisión legal — revisar: 2026-12-01
+
+## Hecho
+- [x] 2026-10-09 Base del repo
+"""
+
+    def test_parse_sections_in_order(self):
+        p = kb.parse_pendientes(self.TEXTO)
+        self.assertEqual(p["ahora"], ["Proteger restablecer demo"])
+        self.assertEqual(p["siguiente"], ["Quitar copia de alertas externa", "CI con tests"])
+        self.assertEqual(len(p["bloqueadas"]), 2)
+        self.assertEqual(p["hecho"], ["2026-10-09 Base del repo"])
+
+    def test_blocked_due_for_review(self):
+        due = kb.bloqueadas_para_revisar(kb.parse_pendientes(self.TEXTO), dt.date(2026, 10, 9))
+        self.assertEqual(len(due), 1)
+        self.assertIn("SMTP", due[0])
+
+    def test_context_is_short_and_prioritized(self):
+        ctx = kb.contexto_pendientes(self.TEXTO, dt.date(2026, 10, 9))
+        self.assertIn("Ahora: Proteger restablecer demo", ctx)
+        self.assertIn("1. Quitar copia de alertas externa", ctx)
+        self.assertIn("2 bloqueada(s)", ctx)
+        self.assertIn("revisar hoy: SMTP", ctx)
+        self.assertNotIn("Base del repo", ctx)  # lo hecho no se inyecta
+
+    def test_init_creates_pendientes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = kb.init_kb(Path(tmp))
+            p = kb.parse_pendientes((base / "PENDIENTES.md").read_text())
+            self.assertEqual(p, {"ahora": [], "siguiente": [], "bloqueadas": [], "hecho": []})
+
+
+class SessionStartPendientesTest(unittest.TestCase):
+    def test_injects_pendientes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = kb.init_kb(root)
+            (base / "PENDIENTES.md").write_text(PendientesTest.TEXTO)
+            env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root))
+            out = subprocess.run([sys.executable, str(ROOT / "hooks" / "session_start.py")], input="{}",
+                                 capture_output=True, text=True, env=env, check=True).stdout
+            ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+            self.assertIn("Ahora: Proteger restablecer demo", ctx)
+
+
+class PendientesTolerantesTest(unittest.TestCase):
+    """Forma real (anonimizada) escrita por un agente sin plantilla: títulos sinónimos, tareas largas y negritas."""
+
+    def setUp(self):
+        self.texto = (ROOT / "tests" / "fixtures_pendientes_reales.md").read_text(encoding="utf-8")
+
+    def test_synonym_sections(self):
+        p = kb.parse_pendientes(self.texto)
+        self.assertEqual(len(p["siguiente"]), 8)   # «Por hacer»
+        self.assertEqual(len(p["bloqueadas"]), 1)  # «Bloqueado»
+        self.assertEqual(len(p["hecho"]), 1)
+
+    def test_long_tasks_are_one_line_in_context(self):
+        ctx = kb.contexto_pendientes(self.texto)
+        self.assertIn("1. Quitar la copia de alertas a un correo externo", ctx)
+        self.assertIn("1 bloqueada(s)", ctx)
+        self.assertTrue(all(len(l) <= kb.MAX_TAREA + 12 for l in ctx.splitlines()[1:]), ctx)
+
+    def test_without_ahora_points_to_first_next(self):
+        self.assertIn("Ahora: (nada en curso; lo próximo es el 1)", kb.contexto_pendientes(self.texto))

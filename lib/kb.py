@@ -11,6 +11,17 @@ from pathlib import Path
 
 KB_DIR = Path("docs") / "knowledge"
 INDEX_NAME = "INDEX.md"
+PENDIENTES_NAME = "PENDIENTES.md"
+SECCIONES = {"ahora": "Ahora", "siguiente": "Siguiente", "bloqueadas": "Bloqueadas", "hecho": "Hecho"}
+MAX_SIGUIENTE = 5
+MAX_TAREA = 110
+# Los agentes no siempre usan los títulos exactos: se aceptan sinónimos comunes.
+SINONIMOS = {
+    "ahora": ("ahora", "en curso", "en progreso", "doing", "now", "actual"),
+    "siguiente": ("siguiente", "siguientes", "por hacer", "pendiente", "pendientes", "backlog", "to do", "todo", "next", "próximo", "próximos"),
+    "bloqueadas": ("bloqueadas", "bloqueada", "bloqueado", "bloqueados", "en espera", "pospuestas", "pospuesto", "blocked"),
+    "hecho": ("hecho", "hechas", "hechos", "completado", "completadas", "terminado", "terminadas", "done"),
+}
 NOTE_DIRS = ("decisions", "learnings", "research")
 AREAS = ("frontend", "backend", "db", "security", "qa", "perf", "ops", "producto")
 AUTO_START = "<!-- kb:auto:start -->"
@@ -30,6 +41,20 @@ INDEX_HEADER = f"""# Base de conocimiento del proyecto
 ## Notas
 {AUTO_START}
 {AUTO_END}
+"""
+
+
+PENDIENTES_PLANTILLA = """# Pendientes
+
+<!-- En orden de prioridad. Bloqueadas: «— espera: <qué la desbloquea> — revisar: AAAA-MM-DD».
+     Hecho: «- [x] AAAA-MM-DD tarea», solo las últimas 10. -->
+## Ahora
+
+## Siguiente
+
+## Bloqueadas
+
+## Hecho
 """
 
 
@@ -128,7 +153,62 @@ def init_kb(root):
     index = kb / INDEX_NAME
     if not index.exists():
         index.write_text(INDEX_HEADER, encoding="utf-8")
+    pendientes = kb / PENDIENTES_NAME
+    if not pendientes.exists():
+        pendientes.write_text(PENDIENTES_PLANTILLA, encoding="utf-8")
     return kb
+
+
+def parse_pendientes(text):
+    """Secciones de PENDIENTES.md → listas de tareas (sin la casilla), en orden."""
+    out, actual = {k: [] for k in SECCIONES}, None
+    for linea in text.splitlines():
+        h = re.match(r"^##\s+(.+?)\s*$", linea)
+        if h:
+            titulo = re.sub(r"[^\wáéíóúñ ]", "", h.group(1).lower()).strip()
+            actual = next((k for k, nombres in SINONIMOS.items() if titulo in nombres), None)
+            continue
+        item = re.match(r"^\s*-\s*\[[ xX]\]\s*(.+?)\s*$", linea)
+        if item and actual:
+            out[actual].append(item.group(1))
+    return out
+
+
+def bloqueadas_para_revisar(pendientes, today=None):
+    today = today or dt.date.today()
+    due = []
+    for tarea in pendientes["bloqueadas"]:
+        m = re.search(r"revisar:\s*(\d{4}-\d{2}-\d{2})", tarea)
+        if m:
+            try:
+                if dt.date.fromisoformat(m.group(1)) <= today:
+                    due.append(tarea)
+            except ValueError:
+                continue
+    return due
+
+
+def _corta(tarea):
+    """Una línea: sin negritas, primera oración y como máximo MAX_TAREA caracteres."""
+    limpia = re.sub(r"\*\*|__", "", tarea).strip()
+    primera = re.split(r"(?<=[.;])\s", limpia, maxsplit=1)[0]
+    return primera if len(primera) <= MAX_TAREA else primera[: MAX_TAREA - 1].rstrip() + "…"
+
+
+def contexto_pendientes(text, today=None):
+    """Resumen corto para inyectar al iniciar: ahora, siguiente (top N) y bloqueadas a revisar."""
+    p = parse_pendientes(text)
+    lineas = ["Pendientes del proyecto (docs/knowledge/PENDIENTES.md):"]
+    vacio = "(nada en curso; lo próximo es el 1)" if p["siguiente"] else "(nada en curso)"
+    lineas += [f"- Ahora: {_corta(t)}" for t in p["ahora"]] or [f"- Ahora: {vacio}"]
+    for i, t in enumerate(p["siguiente"][:MAX_SIGUIENTE], 1):
+        lineas.append(f"  {i}. {_corta(t)}")
+    if len(p["siguiente"]) > MAX_SIGUIENTE:
+        lineas.append(f"  … y {len(p['siguiente']) - MAX_SIGUIENTE} más")
+    if p["bloqueadas"]:
+        lineas.append(f"- {len(p['bloqueadas'])} bloqueada(s).")
+        lineas += [f"  revisar hoy: {_corta(t)}" for t in bloqueadas_para_revisar(p, today)]
+    return "\n".join(lineas)
 
 
 def render_listing(kb):

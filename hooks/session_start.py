@@ -30,6 +30,9 @@ def main():
     index = base / kb.INDEX_NAME
 
     parts = [TRIAGE.read_text(encoding="utf-8").strip()]
+    pendientes = base / kb.PENDIENTES_NAME
+    if pendientes.is_file():
+        parts += ["", kb.contexto_pendientes(pendientes.read_text(encoding="utf-8"))]
     if index.is_file():
         parts += ["", RULES, "", index.read_text(encoding="utf-8").strip()]
         problems = kb.check(base, root)

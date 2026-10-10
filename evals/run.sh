@@ -4,4 +4,5 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 exec claude plugin eval . --scaffold --trust-plugin --no-publish \
   --allow-tools Edit Write Bash WebFetch WebSearch \
+  --judge-model "${EVAL_JUDGE:-sonnet}" \
   --max-cost-usd "${EVAL_MAX_COST:-15}" "$@"
