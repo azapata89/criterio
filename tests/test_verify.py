@@ -317,6 +317,19 @@ class StopGitTest(TranscriptMixin, unittest.TestCase):
         self.touch("app.py", "2026-10-10T01:00:06Z")
         self.assertIn("app.py", verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
 
+    def test_files_written_by_a_subagent_are_not_the_turn_s_edits(self):
+        """Un subagente en segundo plano escribe un archivo temporal: no es una edición de este turno."""
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "revisa la UX"),
+                            self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Agent", prompt="revisa")]))
+        sub = Path(t).with_suffix("") / "subagents"
+        sub.mkdir(parents=True)
+        (sub / "agent-1.jsonl").write_text(json.dumps(
+            entry("assistant", [tool_use("Write", file_path=str(self.repo / "e2e.spec.js"))])) + "\n")
+        self.touch("e2e.spec.js", "2026-10-10T01:00:06Z")
+        self.assertIsNone(verify.check_stop(t, "Revisores en curso.", cwd=str(self.repo)))
+        self.touch("app.py", "2026-10-10T01:00:07Z")
+        self.assertIn("app.py", verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
+
     def test_not_a_git_repo_falls_back_to_tools(self):
         t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "haz algo"),
                             self.at("2026-10-10T01:00:05Z", "assistant", [tool_use("Bash", command="python3 x.py")]))

@@ -221,6 +221,22 @@ def _git_code_changes(cwd, since):
     return changes
 
 
+def _subagent_edits(transcript_path):
+    """Rutas que editaron los subagentes de la sesión: sus cambios no son ediciones del turno."""
+    paths = set()
+    sub = os.path.join(os.path.splitext(transcript_path)[0], "subagents")
+    try:
+        names = [n for n in os.listdir(sub) if n.endswith(".jsonl")]
+    except OSError:
+        return paths
+    for name in names:
+        for _, tool, inp in _tool_uses(_read_jsonl(os.path.join(sub, name)), with_id=True):
+            path = inp.get("file_path") or inp.get("notebook_path")
+            if tool in EDIT_TOOLS and path:
+                paths.add(os.path.realpath(path))
+    return paths
+
+
 def check_stop(transcript_path, last_message, cwd=None):
     """Devuelve el motivo para bloquear el cierre, o None si se puede cerrar."""
     turn = _current_turn(_read_jsonl(transcript_path))
@@ -245,7 +261,13 @@ def check_stop(transcript_path, last_message, cwd=None):
                 at = done_at if (timed and done_at is not None) else when
                 events.append((at, (i, j), "fail" if failed else "verify", None))
     if timed and cwd:
-        events += [(mtime, (-1, 0), "edit", path) for mtime, path in _git_code_changes(cwd, times[0])]
+        try:
+            top = _git(cwd, "rev-parse", "--show-toplevel") or cwd
+        except (OSError, subprocess.SubprocessError):
+            top = cwd
+        ajenos = _subagent_edits(transcript_path)
+        events += [(mtime, (-1, 0), "edit", path) for mtime, path in _git_code_changes(cwd, times[0])
+                   if os.path.realpath(os.path.join(top.strip(), path)) not in ajenos]
 
     last_edit, verified_after, last_failed = None, False, False
     for _, _, kind, path in sorted(events, key=lambda e: (e[0], e[1])):
