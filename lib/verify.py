@@ -78,15 +78,16 @@ def _tool_uses(entries, with_id=False):
 
 
 def _tool_results(entries):
-    """id de tool_use → True si el resultado indica fallo (código de error o salida con fallos)."""
-    failed = {}
+    """id de tool_use → (falló, momento en que llegó el resultado)."""
+    results = {}
     for entry in entries:
         for item in _content(entry):
             if isinstance(item, dict) and item.get("type") == "tool_result":
                 text = item.get("content")
                 text = text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
-                failed[item.get("tool_use_id")] = bool(item.get("is_error")) or bool(FAILED_OUTPUT.search(text))
-    return failed
+                failed = bool(item.get("is_error")) or bool(FAILED_OUTPUT.search(text))
+                results[item.get("tool_use_id")] = (failed, _timestamp(entry))
+    return results
 
 
 def _norm_url(url):
@@ -239,7 +240,10 @@ def check_stop(transcript_path, last_message, cwd=None):
                 events.append((when, (i, j), "edit", path))
             elif (name == "Bash" and VERIFY_CMD.search(str(inp.get("command", "")))
                   and not inp.get("run_in_background")):  # en segundo plano aún no hay resultado
-                events.append((when, (i, j), "fail" if results.get(tid) else "verify", None))
+                failed, done_at = results.get(tid, (False, None))
+                # La verificación vale desde que terminó: el mismo comando puede editar antes de probar.
+                at = done_at if (timed and done_at is not None) else when
+                events.append((at, (i, j), "fail" if failed else "verify", None))
     if timed and cwd:
         events += [(mtime, (-1, 0), "edit", path) for mtime, path in _git_code_changes(cwd, times[0])]
 

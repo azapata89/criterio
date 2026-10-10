@@ -300,6 +300,15 @@ class StopGitTest(TranscriptMixin, unittest.TestCase):
         self.touch("nuevo.py", "2026-10-10T01:00:06Z")
         self.assertIn("nuevo.py", verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
 
+    def test_edit_and_test_in_same_bash_command(self):
+        """Un mismo comando que edita (script) y luego corre las pruebas: cuenta la hora en que terminó."""
+        t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "haz algo"),
+                            self.at("2026-10-10T01:00:05Z", "assistant",
+                                    [{**tool_use("Bash", command="python3 - <<EOF\nEOF\npytest -q"), "id": "b1"}]),
+                            self.at("2026-10-10T01:00:30Z", "user", [tool_result("2 passed", tid="b1")]))
+        self.touch("app.py", "2026-10-10T01:00:06Z")
+        self.assertIsNone(verify.check_stop(t, "Hecho.", cwd=str(self.repo)))
+
     def test_metadata_entries_without_timestamp_are_ignored(self):
         t = self.transcript(self.at("2026-10-10T01:00:00Z", "user", "haz algo"),
                             {"type": "mode", "mode": "auto"},
