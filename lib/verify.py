@@ -21,7 +21,7 @@ ESTADOS = ("verificado", "verificado_previo", "no_verificado")
 JSON_BLOCK = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
 
 EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
-NON_CODE = re.compile(r"(^|/)(docs/|\.claude/)|\.(md|mdx|txt|rst)$", re.IGNORECASE)
+NON_CODE = re.compile(r"(^|/)(docs/|\.claude/|LICENSE$)|\.(md|mdx|txt|rst|example|sample|dist)$", re.IGNORECASE)
 VERIFY_CMD = re.compile(
     r"\b(pytest|unittest|tox|nox|ruff|mypy|pyright|flake8|"
     r"vitest|jest|mocha|playwright|tsc|eslint|biome|"
@@ -182,7 +182,8 @@ def check_stop(transcript_path, last_message, cwd=None):
             path = str(inp.get("file_path") or inp.get("notebook_path") or "")
             if name in EDIT_TOOLS and path and not NON_CODE.search(path):
                 events.append((when, (i, j), "edit", path))
-            elif name == "Bash" and VERIFY_CMD.search(str(inp.get("command", ""))):
+            elif (name == "Bash" and VERIFY_CMD.search(str(inp.get("command", "")))
+                  and not inp.get("run_in_background")):  # en segundo plano aún no hay resultado
                 events.append((when, (i, j), "verify", None))
     if timed and cwd:
         events += [(mtime, (-1, 0), "edit", path) for mtime, path in _git_code_changes(cwd, times[0])]

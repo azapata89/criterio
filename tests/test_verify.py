@@ -123,6 +123,16 @@ class StopTest(TranscriptMixin, unittest.TestCase):
                       tool_use("Edit", file_path="/p/README.md"))
         self.assertIsNone(verify.check_stop(t, "Hecho."))
 
+    def test_background_tests_do_not_count_until_seen(self):
+        t = self.turn(tool_use("Edit", file_path="/p/src/app.py"),
+                      tool_use("Bash", command="php artisan test", run_in_background=True))
+        self.assertIsNotNone(verify.check_stop(t, "Las pruebas siguen corriendo; haré commit si pasan."))
+
+    def test_example_config_files_do_not_require_tests(self):
+        for path in ("/p/.env.example", "/p/config.sample", "/p/phpunit.xml.dist", "/p/LICENSE"):
+            t = self.turn(tool_use("Edit", file_path=path))
+            self.assertIsNone(verify.check_stop(t, "Hecho."), path)
+
     def test_verification_commands_recognized(self):
         for cmd in ("php artisan test", "vendor/bin/pest", "npx tsc --noEmit", "ruff check .",
                     "python -m unittest discover", "npx vitest run", "composer test", "mypy src"):
