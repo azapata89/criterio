@@ -1,6 +1,6 @@
 ---
 tags: [sdd, medio]
-plugins: ["eval-hooks"]
+plugins: ["eval-hooks", "criterio"]
 max_turns: 30
 allowed_tools: [Read, Glob, Grep, Skill, Edit, Write, Bash]
 ---

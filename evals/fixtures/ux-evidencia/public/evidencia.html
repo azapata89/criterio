@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Cargar evidencia</title>
+  <style>
+    .campo { margin: 8px 0; }
+    .error { color: #e33; font-size: 11px; }
+    .boton { background: #afbd14; color: #fff; padding: 4px 6px; font-size: 11px; cursor: pointer; display: inline-block; }
+  </style>
+</head>
+<body>
+  <img src="/marca/logo.png">
+  <h3>Evidencia de la tarea</h3>
+  <form id="f" action="/evidencias" method="post" enctype="multipart/form-data">
+    <div class="campo">
+      <input type="text" name="descripcion" placeholder="Descripción">
+    </div>
+    <div class="campo">
+      <input type="file" name="foto" accept="image/*">
+    </div>
+    <div class="campo">
+      Fecha <input type="text" name="fecha" placeholder="dd/mm/aaaa">
+    </div>
+    <div class="campo error" id="err" style="display:none"></div>
+    <div class="boton" onclick="enviar()">Enviar</div>
+  </form>
+  <script>
+    function enviar() {
+      const d = document.querySelector('[name=descripcion]').value;
+      if (!d) {
+        const e = document.getElementById('err');
+        e.style.display = 'block';
+        e.textContent = 'Campo inválido';
+        return;
+      }
+      document.getElementById('f').submit();
+    }
+  </script>
+</body>
+</html>
