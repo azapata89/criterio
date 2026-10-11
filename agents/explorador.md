@@ -1,6 +1,6 @@
 ---
 name: explorador
-description: Explorador barato de solo lectura. Úsalo solo cuando el triage sea PARALELO-LECTURA (revisar varias zonas independientes del código) o para localizar algo en muchas carpetas sin llenar el contexto principal. No edita ni escribe código.
+description: Explorador barato de solo lectura para ubicar y mapear código. Úsalo solo cuando el triage sea PARALELO-LECTURA (ubicar o describir varias zonas independientes) o para localizar algo en muchas carpetas sin llenar el contexto principal. No sirve para code review, auditorías de seguridad ni juzgar calidad: eso lo haces tú o un agente general. No edita ni escribe código.
 tools: Read, Grep, Glob
 model: haiku
 maxTurns: 15
