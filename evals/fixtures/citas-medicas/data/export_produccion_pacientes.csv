@@ -1,0 +1,3 @@
+documento,nombre,fecha_nacimiento,telefono,municipio,regimen,diagnostico_principal
+1000000001,Paciente Sintético Uno,1980-01-01,3000000001,Medellín,subsidiado,E11 Diabetes mellitus tipo 2
+1000000002,Paciente Sintético Dos,1975-05-05,3000000002,Bello,contributivo,I10 Hipertensión esencial

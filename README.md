@@ -40,6 +40,7 @@ Skills cortas con un checklist ordenado por costo del error y fuentes oficiales 
 - `lente-db`: migraciones sin bloqueo, índices, N+1, EXPLAIN y transacciones (PostgreSQL, MySQL, Laravel, Django)
 - `lente-qa`: tests de regresión, comportamiento observable, flaky y E2E
 - `lente-benchmarks`: baseline, warmup y varianza; nada es «más rápido» sin medirlo
+- `lente-ml`: oportunidades de ML e IA con evidencia del repo: ¿existe la etiqueta?, línea base sin ML, costo del error, fuga de datos (cuándo se escribe cada variable), sesgo por grupo y datos sensibles. No abre exports de producción. Google Rules of ML, scikit-learn, NIST AI RMF, OMS, FDA CDS y Ley 1581
 - `lente-ux`: contexto de uso primero (campo, celular, señal); WCAG 2.2, NN/g, GOV.UK y MDN; verificación con axe y Playwright y capturas revisadas. Nada «es accesible» sin verificarlo
 
 Las notas de memoria llevan `area` (frontend, backend, db, security, qa, perf, ops, producto) para que cada lente encuentre las suyas.
@@ -101,11 +102,14 @@ Línea base (2026-10-09, 3 corridas por caso, puntaje medio):
 | Pendientes: cerrar tarea y decir qué sigue³ | 0.50 | **1.00** | 0.22 → 0.18 |
 | Pendientes: posponer tarea bloqueada sin inventar³ | 0.25 | **1.00** | 0.18 → 0.17 |
 | Memoria sin decidir si va a git: pregunta antes del commit⁵ | 0.44 | **1.00** | 0.14 → 0.13 |
+| ML: oportunidades sin etiqueta de asistencia⁵ | 0.94 | 1.00 | 0.38 → 0.43 |
+| ML: fuga de datos (copago registrado al llegar)⁵ | 0.72 | **1.00**⁶ | 0.35 → 0.33 |
 
 ¹ El juez falló una respuesta correcta; se corrigió el criterio.
 ³ Columna «sin plugin» = plugin antes de la función (rojo de TDD). Juez de evals: Sonnet (Haiku reprobó dos respuestas correctas).
 ⁴ Corrección (2026-10-10): la primera medición de estos casos corrió sin criterio cargado, porque el `plugins:` del caso reemplazaba al plugin bajo prueba. `run.sh` ahora copia criterio dentro de cada caso. En tareas bien especificadas criterio no mejora la calidad y cuesta ~25 % más.
-⁵ Medido el 2026-11-10.
+⁵ Medido el 2026-11-10. En el caso de oportunidades, Claude sin plugin ya detecta la etiqueta faltante, la línea base y los riesgos; la diferencia está en no abrir el export de producción y en detectar la fuga de datos.
+⁶ Con plugin, la primera versión de la lente detectó la fuga en 1 de 3 corridas (0.89). Tras pedir que compruebe en el código cuándo se escribe cada variable, la detectó en 3 de 3; solo se volvió a medir con plugin.
 ² Caso agregado tras observar una sesión real en un proyecto privado, en la que el lente no se activó.
 
 **Lectura:** el plugin mejora donde más importa: cambios destructivos, citar fuentes, contexto de uso (campo y celular), verificación y memoria. En tareas de código bien especificadas no agrega calidad y cuesta más. Donde Claude ya acierta, no agrega calidad y cuesta un poco más (~+12% en lo trivial). Investigar con fuentes oficiales cuesta ~2× más que responder de memoria.
