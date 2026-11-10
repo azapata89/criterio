@@ -30,6 +30,8 @@ def main():
     if dropped:
         msg += f" ({dropped} omitidas por el límite de {kb.MAX_INDEX_LINES} líneas)"
     print(msg)
+    if args.init and kb.estado_git(root) == "sin_decidir":
+        print(kb.PREGUNTA_GIT)
     return 0
 
 

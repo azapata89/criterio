@@ -40,6 +40,8 @@ def main():
             parts += ["", f"Aviso: {len(problems)} nota(s) posiblemente obsoleta(s). Sugiere al usuario `/criterio:knowledge-review`."]
     else:
         parts += ["", "Este proyecto aún no tiene base de conocimiento; el usuario puede crearla con `/criterio:remember`."]
+    if base.is_dir() and kb.estado_git(root) == "sin_decidir":
+        parts += ["", kb.PREGUNTA_GIT]
     context = "\n".join(parts)
     if len(context) > MAX_CHARS:
         context = context[:MAX_CHARS] + "\n… (índice truncado; usa grep en docs/knowledge/)"

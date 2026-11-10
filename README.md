@@ -62,6 +62,8 @@ docs/knowledge/
 - `/criterio:knowledge-review` detecta notas obsoletas (refs rotos, más de 180 días, versión distinta al lockfile) y propone cambios que tú confirmas.
 - `kb-index` y `kb-check` (en `bin/`, disponibles en el Bash de Claude) regeneran el índice y revisan la frescura.
 
+Si `docs/knowledge/` existe pero no está versionado ni ignorado en git, Claude te pregunta una vez si lo versionas (commit) o lo ignoras (`.gitignore` para todo el equipo, `.git/info/exclude` solo para ti). El hook de inicio y `kb-index --init` lo detectan sin costo de modelo.
+
 Va en `docs/` y no en `.claude/` porque Claude Code trata `.claude/` como sensible y pide permiso en cada escritura.
 
 ## Pendientes (qué sigue)
@@ -98,10 +100,12 @@ Línea base (2026-10-09, 3 corridas por caso, puntaje medio):
 | Endpoint destructivo (protecciones + lente de seguridad)² | 0.33 | **1.00** | 0.14 → 0.18 |
 | Pendientes: cerrar tarea y decir qué sigue³ | 0.50 | **1.00** | 0.22 → 0.18 |
 | Pendientes: posponer tarea bloqueada sin inventar³ | 0.25 | **1.00** | 0.18 → 0.17 |
+| Memoria sin decidir si va a git: pregunta antes del commit⁵ | 0.44 | **1.00** | 0.14 → 0.13 |
 
 ¹ El juez falló una respuesta correcta; se corrigió el criterio.
 ³ Columna «sin plugin» = plugin antes de la función (rojo de TDD). Juez de evals: Sonnet (Haiku reprobó dos respuestas correctas).
 ⁴ Corrección (2026-10-10): la primera medición de estos casos corrió sin criterio cargado, porque el `plugins:` del caso reemplazaba al plugin bajo prueba. `run.sh` ahora copia criterio dentro de cada caso. En tareas bien especificadas criterio no mejora la calidad y cuesta ~25 % más.
+⁵ Medido el 2026-11-10.
 ² Caso agregado tras observar una sesión real en un proyecto privado, en la que el lente no se activó.
 
 **Lectura:** el plugin mejora donde más importa: cambios destructivos, citar fuentes, contexto de uso (campo y celular), verificación y memoria. En tareas de código bien especificadas no agrega calidad y cuesta más. Donde Claude ya acierta, no agrega calidad y cuesta un poco más (~+12% en lo trivial). Investigar con fuentes oficiales cuesta ~2× más que responder de memoria.

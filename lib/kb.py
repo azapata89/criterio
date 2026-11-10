@@ -146,6 +146,33 @@ def _as_list(value):
     return value if isinstance(value, list) else [value]
 
 
+PREGUNTA_GIT = (
+    "Archivos de criterio (`docs/knowledge/`): no están versionados ni ignorados en git. "
+    "Antes de hacer commit de ellos, pregunta al usuario una sola vez si los versiona (commit; el equipo los ve) "
+    "o los ignora (`.gitignore` si es para todos, `.git/info/exclude` si es solo suyo). "
+    "Aplica la respuesta; una vez versionados o ignorados, no vuelvas a preguntar."
+)
+
+
+def _git(root, *args):
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+
+
+def estado_git(root):
+    """'versionado', 'ignorado', 'sin_decidir' o 'sin_git' para docs/knowledge/."""
+    try:
+        if _git(root, "rev-parse", "--is-inside-work-tree").returncode != 0:
+            return "sin_git"
+        ruta = (KB_DIR / INDEX_NAME).as_posix()
+        if _git(root, "check-ignore", "-q", ruta).returncode == 0:
+            return "ignorado"
+        if _git(root, "ls-files", KB_DIR.as_posix()).stdout.strip():
+            return "versionado"
+        return "sin_decidir"
+    except OSError:
+        return "sin_git"
+
+
 def init_kb(root):
     kb = root / KB_DIR
     for sub in NOTE_DIRS:

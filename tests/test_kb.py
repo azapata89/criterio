@@ -185,6 +185,57 @@ class PendientesTest(unittest.TestCase):
             self.assertEqual(p, {"ahora": [], "siguiente": [], "bloqueadas": [], "hecho": []})
 
 
+class EstadoGitTest(unittest.TestCase):
+    def repo(self, tmp):
+        root = Path(tmp)
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        return root
+
+    def ctx(self, root):
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root))
+        out = subprocess.run([sys.executable, str(ROOT / "hooks" / "session_start.py")], input="{}",
+                             capture_output=True, text=True, env=env, check=True).stdout
+        return json.loads(out)["hookSpecificOutput"]["additionalContext"]
+
+    def test_sin_git(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(kb.estado_git(Path(tmp)), "sin_git")
+
+    def test_sin_decidir_pregunta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.repo(tmp)
+            kb.init_kb(root)
+            self.assertEqual(kb.estado_git(root), "sin_decidir")
+            self.assertIn("pregunta al usuario", self.ctx(root))
+
+    def test_sin_carpeta_no_pregunta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertNotIn("pregunta al usuario", self.ctx(self.repo(tmp)))
+
+    def test_ignorado_no_pregunta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.repo(tmp)
+            kb.init_kb(root)
+            write(root / ".git" / "info" / "exclude", "docs/knowledge/\n")
+            self.assertEqual(kb.estado_git(root), "ignorado")
+            self.assertNotIn("pregunta al usuario", self.ctx(root))
+
+    def test_versionado_no_pregunta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.repo(tmp)
+            kb.init_kb(root)
+            subprocess.run(["git", "-C", str(root), "add", "docs"], check=True)
+            self.assertEqual(kb.estado_git(root), "versionado")
+            self.assertNotIn("pregunta al usuario", self.ctx(root))
+
+    def test_init_avisa(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.repo(tmp)
+            out = subprocess.run([sys.executable, str(ROOT / "bin" / "kb-index"), "--init", "--root", str(root)],
+                                 capture_output=True, text=True, check=True).stdout
+            self.assertIn("pregunta al usuario", out)
+
+
 class SessionStartPendientesTest(unittest.TestCase):
     def test_injects_pendientes(self):
         with tempfile.TemporaryDirectory() as tmp:
